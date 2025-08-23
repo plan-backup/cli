@@ -1,0 +1,27 @@
+general:
+  mode: "manual" # auto or manual
+  default_database: "arangodb"
+  default_storage: "s3"
+  backup_prefix: "your-prefix/arangodb"
+
+database:
+  arangodb:
+    host: localhost
+    port: 8529
+    username: root
+    password: your-arangodb-password
+    database:
+      [
+        "_system",
+        "your_database_1",
+        "your_database_2",
+      ]
+
+storage:
+  s3:
+    endpoint: https://your-s3-endpoint.com
+    bucket: your-backup-bucket
+    access_key: your-access-key
+    secret_key: your-secret-key
+    region: auto
+    path: /tmp/backup-temp

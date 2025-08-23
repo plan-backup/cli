@@ -1,0 +1,156 @@
+# GoReleaser configuration for arangodb-bk-restore
+project_name: arangodb-bk-restore
+
+# Build configuration
+builds:
+  - id: arangodb-bk-restore
+    binary: arangodb-bk-restore
+    main: .
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+      - 386
+    ignore:
+      - goos: windows
+        goarch: 386
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+      - -X main.builtBy=goreleaser
+
+# Archive configuration
+archives:
+  - id: default
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    files:
+      - README.md
+      - LICENSE*
+      - config.yml.example
+
+# Checksum
+checksum:
+  name_template: 'checksums.txt'
+
+# Snapshot configuration
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+# Release configuration
+release:
+  github:
+    owner: apito-io
+    name: arangodb-bk-restore
+  draft: false
+  prerelease: auto
+  name_template: "v{{ .Version }}"
+  header: |
+    ## ArangoDB Backup & Restore Tool v{{ .Version }}
+    
+    ### What's New
+    - Bug fixes and improvements
+    
+    ### Installation
+    
+    #### Using Go
+    ```bash
+    go install github.com/apito-io/arangodb-bk-restore@{{ .Tag }}
+    ```
+    
+    #### Using Binary
+    Download the appropriate binary for your platform from the assets below.
+    
+    ### Configuration
+    Create a `config.yml` file based on the provided `config.yml.example`.
+
+# Changelog
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^chore:'
+      - '^style:'
+      - '^refactor:'
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: 'New Features'
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: 'Performance Improvements'
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: 'Documentation Updates'
+      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: 'Other Changes'
+      order: 999
+
+# Docker configuration (optional)
+dockers:
+  - id: arangodb-bk-restore
+    image_templates:
+      - "ghcr.io/apito-io/arangodb-bk-restore:latest"
+      - "ghcr.io/apito-io/arangodb-bk-restore:{{ .Tag }}"
+      - "ghcr.io/apito-io/arangodb-bk-restore:v{{ .Major }}"
+      - "ghcr.io/apito-io/arangodb-bk-restore:v{{ .Major }}.{{ .Minor }}"
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--platform=linux/amd64"
+
+# Homebrew tap (optional)
+brews:
+  - name: arangodb-bk-restore
+    tap:
+      owner: apito-io
+      name: homebrew-tools
+    url_template: "https://github.com/apito-io/arangodb-bk-restore/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+    download_strategy: CurlDownloadStrategy
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    folder: Formula
+    homepage: "https://github.com/apito-io/arangodb-bk-restore"
+    description: "ArangoDB backup and restore CLI tool with S3-compatible storage support"
+    license: "MIT"
+    test: |
+      system "#{bin}/arangodb-bk-restore --version"
+    install: |
+      bin.install "arangodb-bk-restore"
+      (etc/"arangodb-bk-restore").install "config.yml.example"
+
+# Universal binaries for macOS (optional)
+universal_binaries:
+  - replace: true
