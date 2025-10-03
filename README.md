@@ -132,6 +132,7 @@ arangodb-bk-restore restore
 ```
 
 This will:
+
 1. List available backups
 2. Allow you to select a backup
 3. Show target database connection details
@@ -157,7 +158,7 @@ arangodb-bk-restore restore \
 ### Using Docker Compose
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   backup:
@@ -210,6 +211,7 @@ arangodb-bk-restore backup [flags]
 ```
 
 **Flags:**
+
 - `--database, -d string`: Specific database to backup
 - `--compress, -c`: Compress backup (default: true)
 - `--include-system, -s`: Include system collections (default: true)
@@ -223,6 +225,7 @@ arangodb-bk-restore restore [flags]
 ```
 
 **Flags:**
+
 - `--backup-key, -k string`: Specific backup key to restore
 - `--database, -d string`: Target database name for restore
 - `--include-system, -s`: Include system collections (default: true)

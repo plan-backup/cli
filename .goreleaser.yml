@@ -49,7 +49,7 @@ archives:
 
 # Checksum
 checksum:
-  name_template: 'checksums.txt'
+  name_template: "checksums.txt"
 
 # Snapshot configuration
 snapshot:
@@ -65,20 +65,20 @@ release:
   name_template: "v{{ .Version }}"
   header: |
     ## ArangoDB Backup & Restore Tool v{{ .Version }}
-    
+
     ### What's New
     - Bug fixes and improvements
-    
+
     ### Installation
-    
+
     #### Using Go
     ```bash
     go install github.com/apito-io/arangodb-bk-restore@{{ .Tag }}
     ```
-    
+
     #### Using Binary
     Download the appropriate binary for your platform from the assets below.
-    
+
     ### Configuration
     Create a `config.yml` file based on the provided `config.yml.example`.
 
@@ -88,28 +88,28 @@ changelog:
   use: github
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
-      - '^ci:'
-      - '^chore:'
-      - '^style:'
-      - '^refactor:'
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "^style:"
+      - "^refactor:"
       - Merge pull request
       - Merge branch
   groups:
-    - title: 'New Features'
+    - title: "New Features"
       regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
       order: 0
-    - title: 'Bug Fixes'
+    - title: "Bug Fixes"
       regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
       order: 1
-    - title: 'Performance Improvements'
+    - title: "Performance Improvements"
       regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
       order: 2
-    - title: 'Documentation Updates'
+    - title: "Documentation Updates"
       regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
       order: 3
-    - title: 'Other Changes'
+    - title: "Other Changes"
       order: 999
 
 # Docker configuration (optional)

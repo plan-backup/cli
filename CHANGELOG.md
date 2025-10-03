@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
 - Initial release of ArangoDB Backup & Restore Tool
 - Support for ArangoDB backup and restore operations using Docker
 - S3-compatible storage support (AWS S3, Cloudflare R2, MinIO)
@@ -23,7 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions workflows for CI/CD
 
 ### Features
+
 - **Backup Operations**:
+
   - Single database backup
   - Multiple database backup (auto mode)
   - System collections inclusion option
@@ -31,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Custom output directory support
 
 - **Restore Operations**:
+
   - Interactive backup selection
   - Target database connection information display
   - Multiple confirmation prompts for safety
@@ -39,12 +43,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - System collections restoration
 
 - **Storage Support**:
+
   - S3-compatible storage (AWS S3, Cloudflare R2, MinIO)
   - Automatic tar.gz compression
   - Secure upload/download with progress tracking
   - Backup metadata parsing and validation
 
 - **Configuration**:
+
   - YAML-based configuration
   - Environment variable overrides
   - Multiple database and storage configurations
@@ -57,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Path traversal protection in archive extraction
 
 ### Technical Details
+
 - Built with Go 1.22
 - Uses AWS SDK v2 for S3 operations
 - Docker-based ArangoDB operations
@@ -67,4 +74,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2024-XX-XX (Planned)
 
 ### Added
+
 - Initial stable release
