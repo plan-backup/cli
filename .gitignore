@@ -58,8 +58,6 @@ coverage.html
 .goreleaser.yml.backup
 
 # Local environment files
-.env
-.env.local
 
 # Docker
 .dockerignore
@@ -88,3 +86,5 @@ coverage/
 tmp/
 
 planb
+# env files tracked for single-dev monorepo setup (do not re-ignore .env / .env.local)
+.env.*.local
