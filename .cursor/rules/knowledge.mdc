@@ -1,5 +1,7 @@
 ---
-alwaysApply: true
+description: Knowledge entry point for plan-b-cli — read .knowledge/README.md before coding in apito/plan-b-cli
+globs: apito/plan-b-cli/**
+alwaysApply: false
 ---
 
 # Knowledge base — plan-b-cli
