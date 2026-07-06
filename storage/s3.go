@@ -425,8 +425,10 @@ func (s *S3Storage) ExtractArchive(archivePath, targetDir string) error {
 }
 
 // parseBackupKey parses backup key to extract metadata
+// Expected format: prefix/engine/database_name_YYYYMMDD_HHMMSS.tar.gz
+// or legacy format: prefix/database_name_YYYYMMDD_HHMMSS.tar.gz
 func (s *S3Storage) parseBackupKey(key string) (*BackupMetadata, error) {
-	// Expected format: prefix/database_timestamp.tar.gz
+	// Expected format: prefix/engine/database_timestamp.tar.gz
 	parts := strings.Split(key, "/")
 	if len(parts) < 2 {
 		return nil, fmt.Errorf("invalid backup key format: %s", key)
@@ -470,3 +472,4 @@ func (s *S3Storage) parseBackupKey(key string) (*BackupMetadata, error) {
 
 	return &metadata, nil
 }
+

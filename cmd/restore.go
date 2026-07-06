@@ -68,13 +68,6 @@ func runRestore(cmd *cobra.Command, args []string) error {
 	logger := setupLogger()
 	logger.Info("Starting restore operation")
 
-	// Get database configuration
-	dbConfig := cfg.GetDatabaseConfig()
-	arangodbConfig, ok := dbConfig.(config.ArangoDBConfig)
-	if !ok {
-		return fmt.Errorf("invalid database configuration type")
-	}
-
 	// Get storage configuration
 	storageConfig := cfg.GetStorageConfig()
 	s3Config, ok := storageConfig.(config.S3Config)
@@ -93,12 +86,15 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("storage connection test failed: %v", err)
 	}
 
-	// Initialize database
-	db := database.NewArangoDB(arangodbConfig, database.BackupOptions{
+	// Initialize database via factory
+	db, err := database.NewDatabase(cfg, database.BackupOptions{
 		IncludeSystem: restoreIncludeSystem,
 		Overwrite:     restoreOverwrite,
 		InputDir:      getRestoreInputDir(cfg, restoreInputDir),
 	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize database: %v", err)
+	}
 
 	// Test database connection
 	if err := db.TestConnection(context.Background()); err != nil {
@@ -123,7 +119,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 	}
 
 	// Multiple confirmation prompts
-	if err := confirmRestore(selectedBackup, arangodbConfig); err != nil {
+	if err := confirmRestore(selectedBackup, cfg); err != nil {
 		return fmt.Errorf("restore cancelled: %v", err)
 	}
 
@@ -134,7 +130,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 	}
 
 	// Display target database connection information
-	displayTargetDatabaseInfo(arangodbConfig, targetDatabase)
+	displayTargetDatabaseInfo(cfg, targetDatabase)
 
 	// Final confirmation
 	if err := finalConfirmation(selectedBackup, targetDatabase); err != nil {
@@ -160,9 +156,17 @@ func runRestore(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to extract backup: %v", err)
 	}
 
+	// Locate the actual backup file inside extracted directory
+	backupSourcePath, err := findBackupFileInDir(extractDir)
+	if err != nil {
+		os.Remove(archivePath)
+		os.RemoveAll(extractDir)
+		return fmt.Errorf("failed to locate backup file: %v", err)
+	}
+
 	// Restore database
 	logger.Infof("Restoring database: %s", targetDatabase)
-	if err := db.Restore(context.Background(), extractDir, targetDatabase); err != nil {
+	if err := db.Restore(context.Background(), backupSourcePath, targetDatabase); err != nil {
 		// Clean up downloaded files
 		os.Remove(archivePath)
 		os.RemoveAll(extractDir)
@@ -180,6 +184,32 @@ func runRestore(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// findBackupFileInDir locates the actual backup file within an extracted archive directory.
+// For ArangoDB it returns the directory itself (dump is a directory of files).
+// For SQLite/PostgreSQL it returns the file path.
+func findBackupFileInDir(dir string) (string, error) {
+	// Check if the directory contains a single file that is the backup (SQLite .db, PostgreSQL .dump)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", err
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			// Could be an arangodump directory or nested extraction
+			// If it's the only entry, maybe that's the backup
+			continue
+		}
+		switch strings.ToLower(filepath.Ext(entry.Name())) {
+		case ".db", ".sqlite", ".sqlite3", ".dump":
+			return filepath.Join(dir, entry.Name()), nil
+		}
+	}
+
+	// Fallback: return the directory itself (ArangoDB expects a directory)
+	return dir, nil
 }
 
 // selectBackupInteractively allows user to select a backup interactively
@@ -230,7 +260,7 @@ func selectBackupInteractively(storage storage.StorageInterface, prefix string) 
 }
 
 // confirmRestore asks for multiple confirmations
-func confirmRestore(backup *storage.BackupMetadata, arangodbConfig config.ArangoDBConfig) error {
+func confirmRestore(backup *storage.BackupMetadata, cfg *config.Config) error {
 	fmt.Printf("\nRestore Details:\n")
 	fmt.Printf("================\n")
 	fmt.Printf("Database: %s\n", backup.DatabaseName)
@@ -240,10 +270,20 @@ func confirmRestore(backup *storage.BackupMetadata, arangodbConfig config.Arango
 
 	fmt.Printf("\nTarget Database Connection:\n")
 	fmt.Printf("===========================\n")
-	fmt.Printf("Host: %s\n", arangodbConfig.Host)
-	fmt.Printf("Port: %d\n", arangodbConfig.Port)
-	fmt.Printf("Username: %s\n", arangodbConfig.Username)
-	fmt.Printf("Password: %s\n", strings.Repeat("*", len(arangodbConfig.Password)))
+	switch cfg.General.DefaultDatabase {
+	case "arangodb":
+		fmt.Printf("Host: %s\n", cfg.Database.ArangoDB.Host)
+		fmt.Printf("Port: %d\n", cfg.Database.ArangoDB.Port)
+		fmt.Printf("Username: %s\n", cfg.Database.ArangoDB.Username)
+		fmt.Printf("Password: %s\n", strings.Repeat("*", len(cfg.Database.ArangoDB.Password)))
+	case "postgresql":
+		fmt.Printf("Host: %s\n", cfg.Database.PostgreSQL.Host)
+		fmt.Printf("Port: %d\n", cfg.Database.PostgreSQL.Port)
+		fmt.Printf("Username: %s\n", cfg.Database.PostgreSQL.Username)
+		fmt.Printf("Password: %s\n", strings.Repeat("*", len(cfg.Database.PostgreSQL.Password)))
+	case "sqlite":
+		fmt.Printf("Database base path: %s\n", cfg.Database.SQLite.Path)
+	}
 
 	reader := bufio.NewReader(os.Stdin)
 
@@ -312,14 +352,24 @@ func getRestoreInputDir(cfg *config.Config, customDir string) string {
 }
 
 // displayTargetDatabaseInfo displays the target database connection information
-func displayTargetDatabaseInfo(arangodbConfig config.ArangoDBConfig, targetDatabase string) {
+func displayTargetDatabaseInfo(cfg *config.Config, targetDatabase string) {
 	fmt.Printf("\nTarget Database Information:\n")
 	fmt.Printf("============================\n")
 	fmt.Printf("Database Name: %s\n", targetDatabase)
-	fmt.Printf("Host: %s\n", arangodbConfig.Host)
-	fmt.Printf("Port: %d\n", arangodbConfig.Port)
-	fmt.Printf("Username: %s\n", arangodbConfig.Username)
-	fmt.Printf("Password: %s\n", strings.Repeat("*", len(arangodbConfig.Password)))
+	switch cfg.General.DefaultDatabase {
+	case "arangodb":
+		fmt.Printf("Host: %s\n", cfg.Database.ArangoDB.Host)
+		fmt.Printf("Port: %d\n", cfg.Database.ArangoDB.Port)
+		fmt.Printf("Username: %s\n", cfg.Database.ArangoDB.Username)
+		fmt.Printf("Password: %s\n", strings.Repeat("*", len(cfg.Database.ArangoDB.Password)))
+	case "postgresql":
+		fmt.Printf("Host: %s\n", cfg.Database.PostgreSQL.Host)
+		fmt.Printf("Port: %d\n", cfg.Database.PostgreSQL.Port)
+		fmt.Printf("Username: %s\n", cfg.Database.PostgreSQL.Username)
+		fmt.Printf("Password: %s\n", strings.Repeat("*", len(cfg.Database.PostgreSQL.Password)))
+	case "sqlite":
+		fmt.Printf("Database base path: %s\n", cfg.Database.SQLite.Path)
+	}
 	fmt.Printf("============================\n")
 }
 

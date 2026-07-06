@@ -62,13 +62,6 @@ func runBackup(cmd *cobra.Command, args []string) error {
 	logger := setupLogger()
 	logger.Info("Starting backup operation")
 
-	// Get database configuration
-	dbConfig := cfg.GetDatabaseConfig()
-	arangodbConfig, ok := dbConfig.(config.ArangoDBConfig)
-	if !ok {
-		return fmt.Errorf("invalid database configuration type")
-	}
-
 	// Get storage configuration
 	storageConfig := cfg.GetStorageConfig()
 	s3Config, ok := storageConfig.(config.S3Config)
@@ -87,13 +80,16 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("storage connection test failed: %v", err)
 	}
 
-	// Initialize database
-	db := database.NewArangoDB(arangodbConfig, database.BackupOptions{
+	// Initialize database via factory
+	db, err := database.NewDatabase(cfg, database.BackupOptions{
 		Compress:      backupCompress,
 		IncludeSystem: backupIncludeSystem,
 		Overwrite:     backupOverwrite,
 		OutputDir:     getBackupOutputDir(cfg, backupOutputDir),
 	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize database: %v", err)
+	}
 
 	// Test database connection
 	if err := db.TestConnection(context.Background()); err != nil {
@@ -101,7 +97,10 @@ func runBackup(cmd *cobra.Command, args []string) error {
 	}
 
 	// Determine which databases to backup
-	databasesToBackup := arangodbConfig.Database
+	databasesToBackup, err := database.GetDatabasesToBackup(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to get database list: %v", err)
+	}
 	if backupDatabase != "" {
 		// Check if specified database exists in configuration
 		found := false
@@ -134,7 +133,7 @@ func runBackup(cmd *cobra.Command, args []string) error {
 		logger.Infof("Backup checksum: %s", backup.Checksum)
 
 		// Upload to storage
-		remoteKey := generateRemoteKey(cfg.General.BackupPrefix, dbName, backup.Timestamp)
+		remoteKey := generateRemoteKey(cfg.General.BackupPrefix, database.GetDatabaseType(cfg), dbName, backup.Timestamp)
 		if err := storage.Upload(context.Background(), backup.BackupPath, remoteKey); err != nil {
 			logger.Errorf("Failed to upload backup for database %s: %v", dbName, err)
 			continue
@@ -170,9 +169,10 @@ func getBackupOutputDir(cfg *config.Config, customDir string) string {
 }
 
 // generateRemoteKey generates a remote storage key for the backup
-func generateRemoteKey(prefix, databaseName string, timestamp time.Time) string {
+// Format: prefix/engine/database_name_YYYYMMDD_HHMMSS.tar.gz
+func generateRemoteKey(prefix, engineType, databaseName string, timestamp time.Time) string {
 	timestampStr := timestamp.Format("20060102_150405")
-	return fmt.Sprintf("%s/arangodb/%s_%s.tar.gz", prefix, databaseName, timestampStr)
+	return fmt.Sprintf("%s/%s/%s_%s.tar.gz", prefix, engineType, databaseName, timestampStr)
 }
 
 // setupLogger sets up the logger with appropriate level

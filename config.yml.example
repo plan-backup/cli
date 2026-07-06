@@ -1,10 +1,11 @@
 general:
   mode: "manual" # auto or manual
-  default_database: "arangodb"
+  default_database: "arangodb" # arangodb, sqlite, postgresql
   default_storage: "s3"
   backup_prefix: "your-prefix/arangodb"
 
 database:
+  # ArangoDB configuration (used when default_database is "arangodb")
   arangodb:
     host: localhost
     port: 8529
@@ -16,6 +17,23 @@ database:
         "your_database_1",
         "your_database_2",
       ]
+
+  # SQLite configuration (used when default_database is "sqlite")
+  sqlite:
+    path: /path/to/sqlite/databases
+    databases:
+      - "apito_system.sqlite"
+      - "apito_project.sqlite"
+
+  # PostgreSQL configuration (used when default_database is "postgresql")
+  postgresql:
+    host: localhost
+    port: 5432
+    username: postgres
+    password: your-postgresql-password
+    databases:
+      - "apito_system"
+      - "apito_project"
 
 storage:
   s3:

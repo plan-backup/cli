@@ -25,8 +25,9 @@ type GeneralConfig struct {
 
 // DatabaseConfig represents database configuration options
 type DatabaseConfig struct {
-	ArangoDB ArangoDBConfig `mapstructure:"arangodb"`
-	// Future: PostgreSQL, MySQL, etc.
+	ArangoDB   ArangoDBConfig   `mapstructure:"arangodb"`
+	SQLite     SQLiteConfig     `mapstructure:"sqlite"`
+	PostgreSQL PostgreSQLConfig `mapstructure:"postgresql"`
 }
 
 // ArangoDBConfig represents ArangoDB specific configuration
@@ -36,6 +37,21 @@ type ArangoDBConfig struct {
 	Username string   `mapstructure:"username"`
 	Password string   `mapstructure:"password"`
 	Database []string `mapstructure:"database"` // Array of database names
+}
+
+// SQLiteConfig represents SQLite specific configuration
+type SQLiteConfig struct {
+	Path      string   `mapstructure:"path"`
+	Databases []string `mapstructure:"databases"` // Array of database file names
+}
+
+// PostgreSQLConfig represents PostgreSQL specific configuration
+type PostgreSQLConfig struct {
+	Host     string   `mapstructure:"host"`
+	Port     int      `mapstructure:"port"`
+	Username string   `mapstructure:"username"`
+	Password string   `mapstructure:"password"`
+	Databases []string `mapstructure:"databases"` // Array of database names
 }
 
 // StorageConfig represents storage configuration options
@@ -102,6 +118,7 @@ func setDefaults() {
 	viper.SetDefault("general.default_storage", "s3")
 	viper.SetDefault("general.backup_prefix", "apito")
 	viper.SetDefault("database.arangodb.port", 8529)
+	viper.SetDefault("database.postgresql.port", 5432)
 	viper.SetDefault("storage.s3.region", "us-east-1")
 	viper.SetDefault("storage.s3.path", "/tmp/apito-backup")
 }
@@ -117,9 +134,22 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("backup_prefix is required")
 	}
 
-	// Validate database config
-	if err := c.Database.ArangoDB.Validate(); err != nil {
-		return fmt.Errorf("arangodb config validation failed: %v", err)
+	// Validate database config based on selected engine
+	switch c.General.DefaultDatabase {
+	case "arangodb":
+		if err := c.Database.ArangoDB.Validate(); err != nil {
+			return fmt.Errorf("arangodb config validation failed: %v", err)
+		}
+	case "sqlite":
+		if err := c.Database.SQLite.Validate(); err != nil {
+			return fmt.Errorf("sqlite config validation failed: %v", err)
+		}
+	case "postgresql":
+		if err := c.Database.PostgreSQL.Validate(); err != nil {
+			return fmt.Errorf("postgresql config validation failed: %v", err)
+		}
+	default:
+		return fmt.Errorf("unsupported database engine: %s", c.General.DefaultDatabase)
 	}
 
 	// Validate storage config
@@ -149,6 +179,39 @@ func (a *ArangoDBConfig) Validate() error {
 	}
 
 	if len(a.Database) == 0 {
+		return fmt.Errorf("at least one database must be specified")
+	}
+
+	return nil
+}
+
+// Validate validates SQLite configuration
+func (s *SQLiteConfig) Validate() error {
+	if s.Path == "" && len(s.Databases) == 0 {
+		return fmt.Errorf("either path or databases must be specified")
+	}
+	return nil
+}
+
+// Validate validates PostgreSQL configuration
+func (p *PostgreSQLConfig) Validate() error {
+	if p.Host == "" {
+		return fmt.Errorf("host is required")
+	}
+
+	if p.Port <= 0 || p.Port > 65535 {
+		return fmt.Errorf("invalid port: %d", p.Port)
+	}
+
+	if p.Username == "" {
+		return fmt.Errorf("username is required")
+	}
+
+	if p.Password == "" {
+		return fmt.Errorf("password is required")
+	}
+
+	if len(p.Databases) == 0 {
 		return fmt.Errorf("at least one database must be specified")
 	}
 
